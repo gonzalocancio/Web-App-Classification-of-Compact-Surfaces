@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h2>Surface Classification</h2>
+<p><strong>Surface Type:</strong> {{ classified_surface }}</p>
+
+<h3>Computed Results</h3>
+
+<!-- Conditional display of homology groups based on the form of the homology tuple -->
+<p><strong>Homology Groups:</strong></p>
+
+{% if homology[0] == 0 and homology[1] == 1 and homology[3] == 0 %}
+    <!-- Non-orientable surface homology groups -->
+    <p>
+        $$ H_0 \cong \mathbb{Z}, \quad
+           H_1 \cong \mathbb{Z}^{{ homology[2] - 1 }} \oplus \mathbb{Z}/2\mathbb{Z}, \quad
+           H_2 = 0 $$
+    </p>
+
+{% elif homology[0] == 1 and homology[1] == 1 and homology[3] == 1 %}
+    <!-- Orientable surface homology groups -->
+    <p>
+        $$ H_0 \cong \mathbb{Z}, \quad
+           H_1 \cong \mathbb{Z}^{{ homology[2] }}, \quad
+           H_2 \cong \mathbb{Z} $$
+    </p>
+
+{% else %}
+    <!-- Handle other cases or errors -->
+    <p>Error: Homology group format not recognized.</p>
+{% endif %}
+
+<!-- Conditional display of fundamental group based on surface type -->
+<p><strong>Fundamental Group:</strong></p>
+
+{% if surface1[0] == 1 %}
+    <!-- Orientable surface -->
+    {% if surface1[1] == 0 %}
+        <!-- Sphere -->
+        <p>
+            $$ \pi_1(S^2) = \{1\} $$
+        </p>
+
+    {% elif surface1[1] == 1 %}
+        <!-- Torus -->
+        <p>
+            $$ \pi_1(T^2) = \mathbb{Z} \times \mathbb{Z} $$
+        </p>
+
+    {% elif surface1[1] == 2 %}
+        <!-- Torus x Torus -->
+        <p>
+            $$ \pi_1(T_2) = \left\langle a_1, b_1, a_{{ surface1[1] }}, b_{{ surface1[1] }} \ \bigg| \ [a_1, b_1][a_2, b_2] = 1 \right\rangle $$
+        </p>
+
+    {% else %}
+        <!-- Orientable surface of genus g -->
+        <p>
+            $$ \pi_1(M) = \left\langle a_1, b_1, \ldots, a_{{ surface1[1] }}, b_{{ surface1[1] }} \ \bigg| \ \prod_{i=1}^{{ surface1[1] }} [a_i, b_i] = 1 \right\rangle $$
+        </p>
+    {% endif %}
+{% else %}
+    <!-- Non-orientable surface -->
+    <p>
+        $$ \pi_1(M) = \left\langle a_1, a_2, \ldots, a_{{ surface1[1] }} \ \bigg| \ a_1^2 a_2^2 \cdots a_{{ surface1[1] }}^2 = 1 \right\rangle $$
+    </p>
+{% endif %}
+
+<a href="{{ url_for('input_page') }}">Back to Input</a>
+
+<!-- Include MathJax for LaTeX rendering -->
+<script type="text/javascript" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+
+{% endblock %}
+

@@ -1,0 +1,280 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h2>Enter the number of vertices for the polygon</h2>
+<form id="polygon-form">
+    <label for="num_vertices">Number of Vertices (even positive integer):</label>
+    <input type="number" id="num_vertices" name="num_vertices" min="4" step="2" required>
+    <button type="button" onclick="generatePolygon()">Generate Polygon</button>
+</form>
+
+<canvas id="polygonCanvas" width="500" height="500" style="border:1px solid #000;"></canvas>
+
+<!-- Container for edge selection -->
+<div id="edges-container"></div>
+
+<!-- Submit button for the chosen orientation -->
+<button id="submit-orientation" style="display:none;" onclick="submitOrientation()">Submit Orientation</button>
+
+<!-- Container for pairing edges (hidden initially) -->
+<div id="pair-container" style="display:none;"></div>
+
+<!-- Final question and buttons (hidden initially) -->
+<div id="final-step" style="display:none;">
+    <p>Is this your surface?</p>
+    <button id="yes-button" onclick="submitSurface()">Yes, compute algebraic groups</button>
+    <button id="no-button" onclick="startAgain()">No, start again</button>
+</div>
+<!-- JavaScript written with the help of ChatGPT -->
+<script>
+    let vertices = [];
+    let numVertices = 0;
+    let edges = []; // List of chosen orientations for each edge
+    let pairs = []; // List of pairs of edges
+    let pairColors = {};
+    let selectedOrientations = {};
+
+    function generatePolygon() {
+    numVertices = parseInt(document.getElementById('num_vertices').value, 10);
+
+    // Check if the number of vertices is 2
+    if (numVertices === 2) {
+        alert("It is either the sphere or the projective plane, I am sure you can work that out on your own!");
+        return;
+    }
+
+    if (numVertices < 4 || numVertices % 2 !== 0) {
+        alert("Please enter an even positive integer greater than or equal to 4.");
+        return;
+    }
+
+    const canvas = document.getElementById('polygonCanvas');
+    const ctx = canvas.getContext('2d');
+    const edgesContainer = document.getElementById('edges-container');
+    edgesContainer.innerHTML = '';
+    const pairContainer = document.getElementById('pair-container');
+    pairContainer.innerHTML = '';
+    pairContainer.style.display = 'none';
+    document.getElementById('submit-orientation').style.display = 'none';
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 200;
+    const angleStep = (2 * Math.PI) / numVertices;
+
+    vertices = [];
+
+    for (let i = 0; i < numVertices; i++) {
+        const x = centerX + radius * Math.cos(i * angleStep);
+        const y = centerY + radius * Math.sin(i * angleStep);
+        vertices.push({ x, y });
+    }
+
+    drawPolygonEdges(ctx);
+
+    for (let i = 0; i < numVertices; i++) {
+        const edgeLabel = document.createElement('label');
+        edgeLabel.textContent = `Edge ${i}: `;
+
+        const option1 = document.createElement('input');
+        option1.type = 'radio';
+        option1.name = `edge${i}`;
+        option1.value = `${i}, ${(i + 1) % numVertices}`;
+        option1.checked = true;
+        option1.addEventListener('change', () => drawAllArrows(ctx));
+
+        const option1Label = document.createElement('label');
+        option1Label.textContent = `(${i}, ${(i + 1) % numVertices})`;
+
+        const option2 = document.createElement('input');
+        option2.type = 'radio';
+        option2.name = `edge${i}`;
+        option2.value = `${(i + 1) % numVertices}, ${i}`;
+        option2.addEventListener('change', () => drawAllArrows(ctx));
+
+        const option2Label = document.createElement('label');
+        option2Label.textContent = `(${(i + 1) % numVertices}, ${i})`;
+
+        edgesContainer.appendChild(edgeLabel);
+        edgesContainer.appendChild(option1);
+        edgesContainer.appendChild(option1Label);
+        edgesContainer.appendChild(option2);
+        edgesContainer.appendChild(option2Label);
+        edgesContainer.appendChild(document.createElement('br'));
+    }
+
+    document.getElementById('submit-orientation').style.display = 'block';
+    drawAllArrows(ctx);
+}
+
+
+    function drawPolygonEdges(ctx, edgeColors = {}) {
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.lineWidth = 2;
+        ctx.font = "16px Arial";
+        ctx.fillStyle = 'black';
+
+        for (let i = 0; i < numVertices; i++) {
+            const startX = vertices[i].x;
+            const startY = vertices[i].y;
+            const endX = vertices[(i + 1) % numVertices].x;
+            const endY = vertices[(i + 1) % numVertices].y;
+
+            ctx.strokeStyle = edgeColors[i] || '#000';
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+
+            const label = i.toString();
+            const labelX = startX + (startX - ctx.canvas.width / 2) * 0.1;
+            const labelY = startY + (startY - ctx.canvas.height / 2) * 0.1;
+            ctx.fillText(label, labelX, labelY);
+
+            if (selectedOrientations[i]) {
+                const [startVertex, endVertex] = selectedOrientations[i].split(',').map(Number);
+                drawArrow(ctx, startVertex, endVertex);
+            }
+        }
+    }
+
+    function drawAllArrows(ctx) {
+        edges = []; // Reset edges list
+        for (let i = 0; i < numVertices; i++) {
+            const selectedEdge = document.querySelector(`input[name="edge${i}"]:checked`).value;
+            selectedOrientations[i] = selectedEdge;
+            edges.push(selectedEdge.split(',').map(Number)); // Add the selected edge to the list of edges
+        }
+
+        drawPolygonEdges(ctx);
+    }
+
+    function drawArrow(ctx, startVertex, endVertex) {
+        const startX = vertices[startVertex].x;
+        const startY = vertices[startVertex].y;
+        const endX = vertices[endVertex].x;
+        const endY = vertices[endVertex].y;
+
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
+        const angle = Math.atan2(endY - startY, endX - startX);
+
+        ctx.beginPath();
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(midX - 10 * Math.cos(angle - Math.PI / 6), midY - 10 * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(midX - 10 * Math.cos(angle + Math.PI / 6), midY - 10 * Math.sin(angle + Math.PI / 6));
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    function submitOrientation() {
+        document.getElementById('edges-container').style.display = 'none';
+        document.getElementById('submit-orientation').style.display = 'none';
+        document.getElementById('pair-container').style.display = 'block';
+        createPairSelectionUI();
+    }
+
+    function createPairSelectionUI() {
+        const pairContainer = document.getElementById('pair-container');
+        pairContainer.innerHTML = '';
+
+        for (let i = 1; i <= numVertices / 2; i++) {
+            const pairLabel = document.createElement('label');
+            pairLabel.textContent = `Pair ${i}: `;
+
+            const select1 = document.createElement('select');
+            select1.name = `pair${i}_1`;
+            populateEdgeDropdown(select1);
+
+            const select2 = document.createElement('select');
+            select2.name = `pair${i}_2`;
+            populateEdgeDropdown(select2);
+
+            pairContainer.appendChild(pairLabel);
+            pairContainer.appendChild(select1);
+            pairContainer.appendChild(select2);
+            pairContainer.appendChild(document.createElement('br'));
+        }
+
+        const submitButton = document.createElement('button');
+        submitButton.textContent = 'Submit Pairs';
+        submitButton.addEventListener('click', confirmPairs);
+        pairContainer.appendChild(submitButton);
+    }
+
+    function populateEdgeDropdown(select) {
+        for (let i = 0; i < numVertices; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = `Edge ${i}`;
+            select.appendChild(option);
+        }
+    }
+
+    function confirmPairs() {
+        pairs = [];
+        pairColors = {};
+
+        const pairContainer = document.getElementById('pair-container');
+        for (let i = 1; i <= numVertices / 2; i++) {
+            const select1 = pairContainer.querySelector(`select[name="pair${i}_1"]`);
+            const select2 = pairContainer.querySelector(`select[name="pair${i}_2"]`);
+            const edge1 = edges[parseInt(select1.value)]; // Get the actual edge from the list of edges
+            const edge2 = edges[parseInt(select2.value)];
+            const pair = [edge1, edge2]; // Store the tuple of edges
+            pairs.push(pair);
+
+            const randomColor = getRandomColor();
+            pairColors[select1.value] = randomColor;
+            pairColors[select2.value] = randomColor;
+        }
+
+        const canvas = document.getElementById('polygonCanvas');
+        const ctx = canvas.getContext('2d');
+        drawPolygonEdges(ctx, pairColors);
+
+        pairContainer.style.display = 'none';
+        document.getElementById('final-step').style.display = 'block';
+    }
+
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF';
+        let color = '#';
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+    }
+
+    function startAgain() {
+        location.reload();
+    }
+
+    function submitSurface() {
+        const surfaceData = JSON.stringify({
+            vertices: numVertices,
+            edges: edges,  // Send the list of edges
+            pairs: pairs   // Send the list of paired edges
+        });
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/output';
+
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'surface_input';
+        input.value = surfaceData;
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+
+{% endblock %}
+
+
+
